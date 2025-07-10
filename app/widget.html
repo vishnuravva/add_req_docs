@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <script src="https://live.zwidgets.com/js-sdk/1.4/ZohoEmbededAppSDK.min.js"></script>
+
+    <title>Required Documents</title>
+    <style>
+      body {
+        font-family: "Segoe UI", sans-serif;
+        padding: 20px;
+        background-color: #f9f9f9;
+      }
+
+      .top-bar {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 15px;
+      }
+
+      label {
+        font-weight: 500;
+        font-size: 15px;
+      }
+
+      select {
+        padding: 8px;
+        font-size: 14px;
+        width: 250px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background-color: white;
+        border-radius: 6px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        table-layout: fixed;
+        display: none;
+      }
+
+      th,
+      td {
+        border: 1px solid #e0e0e0;
+        padding: 10px;
+        vertical-align: middle;
+        text-align: left;
+      }
+
+      th {
+        background-color: #5464f2;
+        color: white;
+        font-weight: 600;
+        font-size: 14px;
+      }
+
+      th:nth-child(1),
+      td:nth-child(1) {
+        width: 50px;
+      }
+      th:nth-child(2),
+      td:nth-child(2) {
+        width: 35%;
+      }
+      th:nth-child(3),
+      td:nth-child(3) {
+        width: 35%;
+      }
+      th:nth-child(4),
+      td:nth-child(4) {
+        width: 80px;
+      }
+
+      input[type="text"],
+      textarea {
+        width: 100%;
+        padding: 8px;
+        font-size: 14px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box;
+        background-color: #fff;
+      }
+
+      textarea {
+        height: 40px;
+        resize: vertical;
+      }
+
+      .delete-icon {
+        cursor: pointer;
+        font-size: 18px;
+        color: #dc3545;
+        display: flex;
+        justify-content: center;
+      }
+
+      .delete-icon:hover {
+        color: #a71d2a;
+      }
+
+      .btn {
+        padding: 8px 16px;
+        background-color: #5464f2;
+        color: white;
+        border: none;
+        cursor: pointer;
+        font-size: 14px;
+        border-radius: 4px;
+        transition: background-color 0.2s ease;
+      }
+
+      .save-container {
+        display: none;
+        justify-content: flex-end;
+        margin-top: 20px;
+      }
+
+      /* Spinner Styles */
+      #spinner {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.6);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+      }
+
+      #spinner div {
+        border: 4px solid #ccc;
+        border-top: 4px solid #5464f2;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="top-bar">
+      <label for="category">Select Category</label>
+      <select id="category"></select>
+      <button class="btn" onclick="addRow()" id="addMoreBtn">Add More</button>
+    </div>
+
+    <table id="docTable">
+      <thead>
+        <tr>
+          <th>S.NO</th>
+          <th>Required Document</th>
+          <th>Instruction</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+
+    <div class="save-container" id="saveContainer">
+      <button onclick="handleSave()" class="btn">Save</button>
+    </div>
+
+    <!-- Spinner -->
+    <div id="spinner"><div></div></div>
+
+    <script>
+      let sno = 0;
+      let record_id = "";
+      let category_lookup = "";
+
+      function showSpinner() {
+        document.getElementById("spinner").style.display = "flex";
+      }
+
+      function hideSpinner() {
+        document.getElementById("spinner").style.display = "none";
+      }
+
+      function addRow(docName = "", instruction = "") {
+        sno++;
+        const tableBody = document.getElementById("tableBody");
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${sno}</td>
+          <td><input type="text" value="${docName}" /></td>
+          <td><textarea>${instruction}</textarea></td>
+          <td><span class="delete-icon" onclick="deleteRow(this)">🗑️</span></td>
+        `;
+        tableBody.appendChild(row);
+      }
+
+      function deleteRow(el) {
+        el.closest("tr").remove();
+        updateSerialNumbers();
+      }
+
+      function updateSerialNumbers() {
+        const rows = document.querySelectorAll("#tableBody tr");
+        sno = 0;
+        rows.forEach((row) => {
+          sno++;
+          row.cells[0].innerText = sno;
+        });
+      }
+
+      ZOHO.embeddedApp.on("PageLoad", (entity) => {
+        record_id = entity.EntityId[0];
+        ZOHO.CRM.API.getRecord({ Entity: "Categories" }).then(function (res) {
+          const dropdown = document.getElementById("category");
+          dropdown.innerHTML = "<option value=''>Choose one...</option>";
+          res.data.forEach((option) => {
+            dropdown.innerHTML += `<option>${option.Name}</option>`;
+          });
+        });
+      });
+
+      document.getElementById("category").addEventListener("change", (e) => {
+        const selected_value = e.target.value;
+        sno = 0;
+        showSpinner();
+        const func_name = "test1";
+        const req_data = {
+          arguments: JSON.stringify({ category: selected_value }),
+        };
+
+        ZOHO.CRM.FUNCTIONS.execute(func_name, req_data).then(function (response) {
+          hideSpinner();
+          let data = [];
+          try {
+            data = JSON.parse(response.details.output) || [];
+          } catch (err) {
+            console.error("Failed to parse output", err);
+          }
+
+          document.getElementById("docTable").style.display = "table";
+          document.getElementById("saveContainer").style.display = "flex";
+          document.getElementById("tableBody").innerHTML = "";
+          sno = 0;
+
+          if (Array.isArray(data) && data.length > 0) {
+            data.forEach((doc) => {
+              const docName = doc.Name || "";
+              const instruction = doc.Insturctions || "";
+              category_lookup = doc.Category || "";
+              addRow(docName, instruction);
+            });
+          } else {
+            addRow();
+          }
+        });
+      });
+
+      function handleSave() {
+        showSpinner();
+        ZOHO.CRM.API.getRecord({
+          Entity: "Contacts",
+          RecordID: record_id,
+          approved: "both",
+        }).then(function (data) {
+          const contact_full_name = data.data[0]?.Full_Name || "";
+          const rows = document.querySelectorAll("#tableBody tr");
+          const recordsToInsert = [];
+
+          rows.forEach((row) => {
+            const docName = row.cells[1].querySelector("input").value.trim();
+            const instruction = row.cells[2].querySelector("textarea").value.trim();
+            if (docName === "" && instruction === "") return;
+            recordsToInsert.push({
+              Name: docName,
+              Category: category_lookup,
+              Instruction: instruction,
+              Customer: {
+                id: record_id,
+                name: contact_full_name,
+              },
+            });
+          });
+
+          if (recordsToInsert.length === 0) {
+            hideSpinner();
+            return;
+          }
+
+          Promise.all(
+            recordsToInsert.map((record) =>
+              ZOHO.CRM.API.insertRecord({
+                Entity: "Required_Documents",
+                APIData: record,
+                Trigger: ["workflow"],
+              })
+            )
+          )
+            .then((results) => {
+              console.log("All records saved:", results);
+              document.getElementById("category").value = "";
+              document.getElementById("docTable").style.display = "none";
+              document.getElementById("saveContainer").style.display = "none";
+              document.getElementById("tableBody").innerHTML = "";
+              sno = 0;
+            })
+            .catch((error) => {
+              console.error("Error while saving records:", error);
+            })
+            .finally(() => {
+              hideSpinner();
+            });
+        });
+      }
+      ZOHO.embeddedApp.init();
+    </script>
+  </body>
+</html>
