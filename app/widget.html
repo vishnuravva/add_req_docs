@@ -144,8 +144,12 @@
       }
 
       @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
       }
     </style>
   </head>
@@ -179,6 +183,7 @@
       let sno = 0;
       let record_id = "";
       let category_lookup = "";
+      let dom_category = document.getElementById("category");
 
       function showSpinner() {
         document.getElementById("spinner").style.display = "flex";
@@ -221,13 +226,28 @@
           const dropdown = document.getElementById("category");
           dropdown.innerHTML = "<option value=''>Choose one...</option>";
           res.data.forEach((option) => {
-            dropdown.innerHTML += `<option>${option.Name}</option>`;
+            dropdown.innerHTML += `<option value="${option.id}">${option.Name}</option>`;
           });
         });
       });
 
-      document.getElementById("category").addEventListener("change", (e) => {
+      dom_category.addEventListener("change", (e) => {
         const selected_value = e.target.value;
+        const dropdown = e.target;
+        const selected_option = dropdown.options[dropdown.selectedIndex];
+
+        const selected_id = selected_option.value; // This is the ID (value attribute)
+        const selected_name = selected_option.textContent; // This is the Name (label)
+
+        // console.log("Selected Category ID:", selected_id);
+        // console.log("Selected Category Name:", selected_name);
+
+        // Example: Construct a lookup map or use both values
+        category_lookup = {
+          id: selected_id,
+          name: selected_name,
+        };
+
         sno = 0;
         showSpinner();
         const func_name = "test1";
@@ -235,7 +255,9 @@
           arguments: JSON.stringify({ category: selected_value }),
         };
 
-        ZOHO.CRM.FUNCTIONS.execute(func_name, req_data).then(function (response) {
+        ZOHO.CRM.FUNCTIONS.execute(func_name, req_data).then(function (
+          response
+        ) {
           hideSpinner();
           let data = [];
           try {
@@ -253,7 +275,6 @@
             data.forEach((doc) => {
               const docName = doc.Name || "";
               const instruction = doc.Insturctions || "";
-              category_lookup = doc.Category || "";
               addRow(docName, instruction);
             });
           } else {
@@ -275,7 +296,9 @@
 
           rows.forEach((row) => {
             const docName = row.cells[1].querySelector("input").value.trim();
-            const instruction = row.cells[2].querySelector("textarea").value.trim();
+            const instruction = row.cells[2]
+              .querySelector("textarea")
+              .value.trim();
             if (docName === "" && instruction === "") return;
             recordsToInsert.push({
               Name: docName,
@@ -303,12 +326,17 @@
             )
           )
             .then((results) => {
-              console.log("All records saved:", results);
+              // console.log("All records saved:", results);
               document.getElementById("category").value = "";
               document.getElementById("docTable").style.display = "none";
               document.getElementById("saveContainer").style.display = "none";
               document.getElementById("tableBody").innerHTML = "";
               sno = 0;
+
+              ZOHO.CRM.UI.Popup.close().then(function (data) {
+                console.log("Pop closed");
+              });
+
             })
             .catch((error) => {
               console.error("Error while saving records:", error);
